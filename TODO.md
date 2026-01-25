@@ -7,21 +7,21 @@
 ## Phase 1: Setup & Dependencies
 
 ### 1.1 SDK インストール
-- [ ] `@google/genai` パッケージをインストール
+- [x] `@google/genai` パッケージをインストール
   ```bash
   npm install @google/genai
   ```
 
 ### 1.2 環境変数設定
-- [ ] プロジェクトルートに `.env` ファイルを作成
+- [x] プロジェクトルートに `.env` ファイルを作成
   ```env
   VITE_GOOGLE_CLOUD_API_KEY=your_api_key_here
   ```
-- [ ] Google Cloud Console から API Key を取得
-- [ ] `.env` ファイルに API Key を設定
+- [x] Google Cloud Console から API Key を取得
+- [x] `.env` ファイルに API Key を設定
 
 ### 1.3 .gitignore 更新
-- [ ] `.gitignore` に環境変数ファイルを追加
+- [x] `.gitignore` に環境変数ファイルを追加
   ```
   # Environment variables
   .env
@@ -29,11 +29,11 @@
   ```
 
 ### 1.4 不要ファイルの削除
-- [ ] `src/counter.js` を削除
-- [ ] `src/javascript.svg` を削除
+- [x] `src/counter.js` を削除
+- [x] `src/javascript.svg` を削除
 
 ### 1.5 HTML更新
-- [ ] `index.html` の title を "Fashion Image Generator" に変更
+- [x] `index.html` の title を "Fashion Image Generator" に変更
 
 ---
 
