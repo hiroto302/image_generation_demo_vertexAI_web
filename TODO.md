@@ -40,13 +40,13 @@
 ## Phase 2: Create New Modules
 
 ### 2.1 File Utilities Module
-- [ ] `src/utils/` ディレクトリを作成
-- [ ] `src/utils/fileHelpers.js` を作成
-- [ ] `fileToBase64()` 関数を実装
+- [x] `src/utils/` ディレクトリを作成
+- [x] `src/utils/fileHelpers.js` を作成
+- [x] `fileToBase64()` 関数を実装
   - FileReader を使用
   - Promise ベース
   - Data URL プレフィックスを除去
-- [ ] `getMimeType()` 関数を実装
+- [x] `getMimeType()` 関数を実装nn
   - file.type を返す
 
 **実装内容**:
@@ -71,11 +71,11 @@ export function getMimeType(file) {
 ```
 
 ### 2.2 Vertex AI API Module
-- [ ] `src/api/` ディレクトリを作成
-- [ ] `src/api/vertexAI.js` を作成
-- [ ] Google GenAI SDK をインポート
-- [ ] 環境変数から API Key を取得
-- [ ] `generateFashionImage()` 関数を実装
+- [x] `src/api/` ディレクトリを作成
+- [x] `src/api/vertexAI.js` を作成
+- [x] Google GenAI SDK をインポート
+- [x] 環境変数から API Key を取得
+- [x] `generateFashionImage()` 関数を実装
   - API Key チェック
   - GoogleGenAI 初期化
   - generationConfig 設定
@@ -151,25 +151,25 @@ export async function generateFashionImage(outfitFile, personFile) {
 ```
 
 ### 2.3 Image Uploader Component
-- [ ] `src/components/` ディレクトリを作成
-- [ ] `src/components/ImageUploader.js` を作成
-- [ ] `ImageUploader` クラスを実装
-  - [ ] コンストラクタ（要素ID受け取り、DOM要素取得）
-  - [ ] `setupEventListeners()` - イベントリスナー登録
+- [x] `src/components/` ディレクトリを作成
+- [x] `src/components/ImageUploader.js` を作成
+- [x] `ImageUploader` クラスを実装
+  - [x] コンストラクタ（要素ID受け取り、DOM要素取得）
+  - [x] `setupEventListeners()` - イベントリスナー登録
     - クリックでファイル入力トリガー
     - ファイル入力の change イベント
     - ドラッグ関連イベント（dragenter, dragover, dragleave, drop）
     - 削除ボタンのクリックイベント
-  - [ ] `handleDragEnter()` - ドラッグ開始時のスタイル
-  - [ ] `handleDragOver()` - ドラッグ中のイベント処理
-  - [ ] `handleDragLeave()` - ドラッグ離脱時のスタイル解除
-  - [ ] `handleDrop()` - ドロップ処理
-  - [ ] `handleFileSelect()` - ファイル選択処理
-  - [ ] `validateFile()` - ファイル検証（タイプ、サイズ）
-  - [ ] `setFile()` - ファイル設定
-  - [ ] `showPreview()` - プレビュー表示
-  - [ ] `clearFile()` - ファイルクリア
-  - [ ] `getFile()` - ファイル取得
+  - [x] `handleDragEnter()` - ドラッグ開始時のスタイル
+  - [x] `handleDragOver()` - ドラッグ中のイベント処理
+  - [x] `handleDragLeave()` - ドラッグ離脱時のスタイル解除
+  - [x] `handleDrop()` - ドロップ処理
+  - [x] `handleFileSelect()` - ファイル選択処理
+  - [x] `validateFile()` - ファイル検証（タイプ、サイズ）
+  - [x] `setFile()` - ファイル設定
+  - [x] `showPreview()` - プレビュー表示
+  - [x] `clearFile()` - ファイルクリア
+  - [x] `getFile()` - ファイル取得
 
 **実装内容**:
 ```javascript
