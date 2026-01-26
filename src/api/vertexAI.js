@@ -1,63 +1,38 @@
-import { GoogleGenAI } from '@google/genai';
 import { fileToBase64, getMimeType } from '../utils/fileHelpers.js';
 
-const API_KEY = import.meta.env.VITE_GOOGLE_CLOUD_API_KEY;
+const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || 'http://localhost:3001/api/generate-image';
 
 export async function generateFashionImage(outfitFile, personFile) {
-  // WARNING: API key is exposed in client code. Use backend proxy for production.
-  if (!API_KEY) {
-    throw new Error('API key not configured');
+  if (!API_ENDPOINT) {
+    throw new Error('API endpoint not configured');
   }
 
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
-  const model = 'gemini-3-pro-image-preview';
-
-  const generationConfig = {
-    maxOutputTokens: 32768,
-    temperature: 1,
-    topP: 0.95,
-    responseModalities: ["TEXT", "IMAGE"],
-    imageConfig: {
-      aspectRatio: "1:1",
-      imageSize: "1K",
-    },
-    safetySettings: [
-      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "OFF" },
-      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "OFF" },
-      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "OFF" },
-      { category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" }
-    ],
-  };
+  console.log('🚀 Sending to backend:', API_ENDPOINT);
 
   const outfitBase64 = await fileToBase64(outfitFile);
   const personBase64 = await fileToBase64(personFile);
 
-  const prompt = 'Create professional e-commerce fashion photos. Place the outfit from the first image onto the model in the second image. Generate realistic full-body shots of the model wearing the outfit, adjusting lighting and shadows to match an outdoor environment.';
+  const response = await fetch(API_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      outfitBase64,
+      outfitMimeType: getMimeType(outfitFile),
+      personBase64,
+      personMimeType: getMimeType(personFile)
+    })
+  });
 
-  const message = [
-    { text: prompt },
-    { inlineData: { mimeType: getMimeType(outfitFile), data: outfitBase64 } },
-    { inlineData: { mimeType: getMimeType(personFile), data: personBase64 } }
-  ];
-
-  const chat = ai.chats.create({ model, config: generationConfig });
-  const response = await chat.sendMessageStream({ message });
-
-  // Extract image data from streaming response
-  let imageData = null;
-  for await (const chunk of response) {
-    if (chunk.candidates?.[0]?.content?.parts) {
-      for (const part of chunk.candidates[0].content.parts) {
-        if (part.inlineData?.data) {
-          imageData = part.inlineData.data;
-        }
-      }
-    }
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    console.error('Backend error:', errorData);
+    throw new Error(errorData.error || `Server error: ${response.status}`);
   }
 
-  if (!imageData) {
-    throw new Error('No image data received from API');
-  }
+  const data = await response.json();
+  console.log('✅ Image received');
 
-  return imageData;
+  return data.imageData;
 }
