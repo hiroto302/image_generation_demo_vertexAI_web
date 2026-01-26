@@ -1,4 +1,4 @@
-# Google GenAI 画像生成API 調査レポート
+こ# Google GenAI 画像生成API 調査レポート
 
 **作成日**: 2026-01-26
 **プロジェクト**: Fashion Image Generator
