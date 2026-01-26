@@ -20,7 +20,6 @@ export async function generateFashionImage(outfitFile, personFile) {
     imageConfig: {
       aspectRatio: "1:1",
       imageSize: "1K",
-      outputMimeType: "image/png",
     },
     safetySettings: [
       { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "OFF" },
