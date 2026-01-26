@@ -7,9 +7,11 @@
 
 ### 使用技術
 - **フロントエンド**: Vite + Vanilla JavaScript (ES Modules)
-- **AI/ML**: Google Cloud Vertex AI - Gemini 3 Pro Image Preview
-- **SDK**: `@google/genai`
-- **スタイリング**: CSS3 (ダーク/ライトモード対応)
+- **バックエンド**: Express.js (Node.js)
+- **AI/ML**: Google Cloud Vertex AI - Gemini 2.5 Flash Image
+- **SDK**: `@google-cloud/vertexai`（バックエンド）, `@google/genai`（レガシー参照）
+- **認証**: Application Default Credentials (ADC) / OAuth2
+- **スタイリング**: CSS3（ダーク/ライトモード対応）
 
 ---
 
@@ -43,17 +45,23 @@
 - **検証**: クライアント側でファイルタイプとサイズをチェック
 
 #### API統合
-- **モデル**: `gemini-3-pro-image-preview`
-- **認証**: API Key (環境変数経由)
+- **アーキテクチャ**: バックエンドプロキシパターン
+- **モデル**: `gemini-2.5-flash-image`
+- **認証**: Application Default Credentials (ADC)
 - **リクエスト形式**:
+  - フロントエンド → Express.jsバックエンド（HTTP POST）
+  - バックエンド → Vertex AI（gRPC/REST）
   - プロンプトテキスト + 服装画像（Base64） + 人物画像（Base64）
-- **レスポンス形式**: ストリーミング、PNG画像（Base64エンコード）
+- **レスポンス形式**: PNG画像（Base64エンコード）
 
 #### セキュリティ
-⚠️ **重要**: このプロトタイプでは、API キーがクライアントコードに露出します。
-- 本番環境では**バックエンドプロキシ**の使用を推奨
-- `.env` ファイルを `.gitignore` に追加
-- API キーの定期的なローテーション
+✅ **本番環境対応**: この実装は本番環境で使用可能なセキュリティ設計です。
+- **バックエンドプロキシ**: Express.jsサーバーでAPI呼び出しを中継
+- **ADC認証**: Application Default Credentialsによる安全な認証
+- **CORS設定**: 許可されたオリジンのみアクセス可能
+- **APIキーの非露出**: クライアントコードに認証情報が含まれない
+- **レート制限**: バックエンド側で実装可能
+- `.env`ファイルを`.gitignore`に追加
 
 ---
 
@@ -102,28 +110,77 @@
 
 ```
 image_generation_demo_vertexAI_web/
-├── .env                              # 環境変数（API Key）
+├── .env                              # 環境変数（フロントエンド）
 ├── .gitignore                        # Git除外設定
 ├── index.html                        # HTMLエントリーポイント
 ├── package.json                      # 依存関係管理
 ├── CLAUDE.md                         # プロジェクト仕様書（本ファイル）
 ├── TODO.md                           # 実装計画書
+├── API_INVESTIGATION.md              # API調査レポート
+├── OAUTH_AUTHENTICATION_SETUP.md     # OAuth認証設定ガイド
 ├── public/                           # 静的アセット
 │   └── vite.svg
-└── src/                              # ソースコード
+├── server/                           # バックエンドサーバー
+│   ├── .env                          # サーバー環境変数
+│   ├── index.js                      # Expressサーバーエントリーポイント
+│   └── routes/
+│       └── imageGeneration.js        # 画像生成APIルート
+└── src/                              # フロントエンドソースコード
     ├── main.js                       # アプリケーションエントリーポイント
     ├── style.css                     # グローバルスタイル
     ├── api/
-    │   └── vertexAI.js              # Vertex AI API統合
+    │   ├── vertexAI.js               # バックエンドAPIクライアント
+    │   └── vertexAICode.js           # レガシーコード参照
     ├── components/
-    │   └── ImageUploader.js         # 画像アップロードコンポーネント
+    │   └── ImageUploader.js          # 画像アップロードコンポーネント
     └── utils/
-        └── fileHelpers.js           # ファイル変換ユーティリティ
+        └── fileHelpers.js            # ファイル変換ユーティリティ
 ```
 
 ### モジュール設計
 
-#### 1. `src/main.js` - メインアプリケーション
+#### 0. `server/index.js` - Expressサーバー
+**責務**:
+- Expressアプリケーションの初期化
+- CORSミドルウェアの設定
+- Body parser設定（10MB制限）
+- ルーティング設定
+- エラーハンドリング
+- ヘルスチェックエンドポイント
+
+**主要設定**:
+- ポート: 3001（デフォルト）
+- CORS: http://localhost:5173（開発時）
+- ボディサイズ制限: 10MB
+
+**エンドポイント**:
+- `POST /api/generate-image` - 画像生成
+- `GET /health` - ヘルスチェック
+
+#### 1. `server/routes/imageGeneration.js` - 画像生成API
+**責務**:
+- Vertex AI SDKの初期化（ADC認証）
+- 画像生成リクエストの処理
+- Base64画像の検証
+- Vertex AIへのリクエスト送信
+- レスポンスからの画像データ抽出
+- エラーハンドリング
+
+**主要関数**:
+```javascript
+router.post('/', async (req, res))
+```
+
+**フロー**:
+1. リクエストボディからBase64画像を取得
+2. 画像の存在を検証
+3. Vertex AIモデルを初期化（gemini-2.5-flash-image）
+4. プロンプトと画像でリクエスト構築
+5. Vertex AIに送信（非ストリーミング）
+6. レスポンスから画像データを抽出
+7. JSONレスポンスで返す
+
+#### 2. `src/main.js` - メインアプリケーション
 **責務**:
 - UI レンダリング
 - ImageUploader インスタンスの初期化
@@ -138,11 +195,10 @@ image_generation_demo_vertexAI_web/
 // Download ボタン: Base64 → Data URL → ダウンロード
 ```
 
-#### 2. `src/api/vertexAI.js` - API統合モジュール
+#### 3. `src/api/vertexAI.js` - バックエンドAPIクライアント
 **責務**:
-- Google GenAI SDK の初期化
-- 画像生成リクエストの構築
-- ストリーミングレスポンスの処理
+- バックエンドAPIへのHTTPリクエスト
+- File → Base64変換
 - エラーハンドリング
 
 **主要関数**:
@@ -151,15 +207,16 @@ export async function generateFashionImage(outfitFile, personFile)
 ```
 
 **フロー**:
-1. API Key チェック
-2. SDK 初期化
-3. File → Base64 変換
-4. メッセージ構築（プロンプト + 2つの画像）
-5. ストリーミング送信
-6. レスポンスから画像データ抽出
-7. Base64 文字列を返す
+1. APIエンドポイントチェック
+2. File → Base64変換
+3. HTTP POSTリクエスト送信
+4. レスポンスのエラーチェック
+5. 画像データを返す
 
-#### 3. `src/components/ImageUploader.js` - アップロードコンポーネント
+**注意**: このモジュールは以前Vertex AI SDKを直接使用していましたが、
+現在はバックエンドプロキシへのHTTPクライアントとして機能します。
+
+#### 4. `src/components/ImageUploader.js` - アップロードコンポーネント
 **責務**:
 - ドラッグ&ドロップ処理
 - ファイル選択処理
@@ -180,7 +237,7 @@ clearFile()               // クリア
 getFile()                 // ファイル取得
 ```
 
-#### 4. `src/utils/fileHelpers.js` - ファイルユーティリティ
+#### 5. `src/utils/fileHelpers.js` - ファイルユーティリティ
 **責務**:
 - File オブジェクトを Base64 に変換
 - MIME タイプ取得
@@ -212,22 +269,37 @@ showPreview() - FileReader で Data URL 生成
 
 ### 画像生成フロー
 ```
-Generateボタン クリック
+Generateボタン クリック（Frontend）
   ↓
-両方の File オブジェクト取得
+両方のFileオブジェクト取得
   ↓
 ローディング表示開始
   ↓
-generateFashionImage(outfit, person)
+generateFashionImage(outfit, person)（src/api/vertexAI.js）
   ├─ fileToBase64(outfit) → Base64文字列
   ├─ fileToBase64(person) → Base64文字列
-  ├─ メッセージ構築
-  ├─ Vertex AI にストリーミング送信
+  ├─ HTTP POST to http://localhost:3001/api/generate-image
+  └─ Request Body: { outfitBase64, outfitMimeType, personBase64, personMimeType }
+  ↓
+Expressサーバー（server/index.js）
+  ├─ CORSチェック
+  ├─ Body parser（10MB制限チェック）
+  └─ Route to /api/generate-image
+  ↓
+画像生成ルート（server/routes/imageGeneration.js）
+  ├─ Vertex AI初期化（ADC認証）
+  ├─ Model: gemini-2.5-flash-image
+  ├─ リクエスト構築（プロンプト + 2画像）
+  ├─ generationConfig設定
+  │   ├─ responseModalities: ["TEXT", "IMAGE"]
+  │   ├─ imageConfig: { aspectRatio: "1:1", imageSize: "1K" }
+  │   └─ safetySettings: OFF（全カテゴリ）
+  ├─ Vertex AIに送信（model.generateContent）
   └─ レスポンスから画像データ抽出
   ↓
-結果画像を Base64 で取得
+Response { imageData: "base64..." } → Frontend
   ↓
-Data URL 生成して <img> に設定
+Data URL生成して<img>に設定
   ↓
 ローディング非表示 & 結果セクション表示
 ```
@@ -260,32 +332,90 @@ download 属性にタイムスタンプ付きファイル名設定
 
 #### 1. 依存関係のインストール
 ```bash
+# ルートディレクトリで実行
 npm install
 ```
 
 これにより以下がインストールされます:
+
+**フロントエンド**:
 - `vite`: 開発サーバー & ビルドツール
-- `@google/genai`: Google Generative AI SDK
+
+**バックエンド**:
+- `@google-cloud/vertexai`: Google Vertex AI SDK
+- `express`: Webサーバーフレームワーク
+- `cors`: CORSミドルウェア
+- `dotenv`: 環境変数管理
+- `nodemon`: 開発時の自動再起動
+
+**レガシー**:
+- `@google/genai`: 参照用（現在は未使用）
 
 #### 2. 環境変数の設定
-プロジェクトルートに `.env` ファイルを作成:
 
+**2つの`.env`ファイルが必要です:**
+
+**A. ルート`.env`（フロントエンド用）**:
 ```env
-VITE_GOOGLE_CLOUD_API_KEY=your_actual_api_key_here
+# バックエンドAPIエンドポイント
+VITE_API_ENDPOINT=http://localhost:3001/api/generate-image
+
+# Google Cloud設定（バックエンドと共有）
+GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
 ```
 
-⚠️ **API Key の取得方法**:
-1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス
-2. Vertex AI API を有効化
-3. 認証情報から API Key を作成
-4. 上記の `.env` ファイルに貼り付け
+**B. `server/.env`（バックエンド用）**:
+```env
+# Google Cloud設定
+GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_CLOUD_LOCATION=us-central1
+
+# サーバー設定
+PORT=3001
+NODE_ENV=development
+
+# CORS設定
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:4173
+```
+
+⚠️ **Google Cloud認証の設定**:
+このアプリケーションはApplication Default Credentials（ADC）を使用します。
+以下のいずれかの方法で認証を設定してください:
+
+**方法1: gcloud CLIでログイン（開発環境推奨）**
+```bash
+gcloud auth application-default login
+gcloud config set project your-project-id
+```
+
+**方法2: サービスアカウントキー（本番環境推奨）**
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account-key.json"
+```
+
+詳細は`OAUTH_AUTHENTICATION_SETUP.md`を参照してください。
 
 #### 3. 開発サーバーの起動
+
+**2つのターミナルが必要です:**
+
+**ターミナル1: バックエンドサーバー**
+```bash
+npm run dev:server
+# または nodemon でのホットリロード
+# nodemon server/index.js
+```
+
+**ターミナル2: フロントエンド開発サーバー**
 ```bash
 npm run dev
 ```
 
-ブラウザで `http://localhost:5173` にアクセス
+**アクセス**:
+- フロントエンド: http://localhost:5173
+- バックエンドAPI: http://localhost:3001
+- ヘルスチェック: http://localhost:3001/health
 
 #### 4. 本番ビルド
 ```bash
@@ -298,25 +428,43 @@ npm run preview  # ビルド結果をプレビュー
 ## Vertex AI 設定詳細
 
 ### モデル設定
+
+**バックエンド（`server/routes/imageGeneration.js`）で設定:**
+
 ```javascript
-const generationConfig = {
-  maxOutputTokens: 32768,        // 最大トークン数
-  temperature: 1,                 // ランダム性（0-2）
-  topP: 0.95,                     // サンプリング閾値
-  responseModalities: ["TEXT", "IMAGE"],  // テキスト+画像レスポンス
-  imageConfig: {
-    aspectRatio: "1:1",           // 正方形
-    imageSize: "1K",              // 1024x1024
-    outputMimeType: "image/png",  // PNG形式
+const model = vertexAI.getGenerativeModel({
+  model: 'gemini-2.5-flash-image',
+  generationConfig: {
+    maxOutputTokens: 32768,        // 最大トークン数
+    temperature: 1,                 // ランダム性（0-2）
+    topP: 0.95,                     // サンプリング閾値
   },
-  safetySettings: [               // 全カテゴリOFF（テスト用）
-    { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "OFF" },
-    { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "OFF" },
-    { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "OFF" },
-    { category: "HARM_CATEGORY_HARASSMENT", threshold: "OFF" }
-  ],
+  safetySettings: [                // 全カテゴリOFF（開発用）
+    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'OFF' },
+    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' },
+    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'OFF' },
+    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'OFF' }
+  ]
+});
+
+// リクエスト時の設定
+const request = {
+  contents: [...],
+  generationConfig: {
+    responseModalities: ['TEXT', 'IMAGE'],  // テキスト+画像レスポンス
+    imageConfig: {
+      aspectRatio: '1:1',           // 正方形（1024x1024推奨）
+      imageSize: '1K'               // 1K = 1024px
+      // 注意: outputMimeType は非対応（削除済み）
+    }
+  }
 };
 ```
+
+**変更履歴**:
+- ✅ `outputMimeType`パラメーターーを削除（非対応のため）
+- ✅ `aspectRatio`を"16:9" → "1:1"に変更（ファッション画像に最適）
+- ✅ モデルを`gemini-3-pro-image-preview` → `gemini-2.5-flash-image`に更新
 
 ### プロンプト
 ```
@@ -335,9 +483,11 @@ adjusting lighting and shadows to match an outdoor environment.
 - **サイズ超過**: `alert('File size must be less than 10MB')`
 
 ### API エラー
-- **API Key 未設定**: `alert('API key not configured. Please add VITE_GOOGLE_CLOUD_API_KEY to .env file')`
-- **生成失敗**: `alert('Failed to generate image. Please check console and try again.')`
-- **画像データなし**: `Error: No image data received from API`
+- **バックエンド接続失敗**: `alert('Failed to generate image. Please check console and try again.')`
+- **認証エラー**: ADC認証失敗 → サーバーログに出力
+- **Vertex AIエラー**: バックエンドが詳細なエラーログを出力
+- **画像データなし**: `Error: No image data received from Vertex AI`
+- **CORSエラー**: 許可されていないオリジンからのアクセス
 
 ### コンソールログ
 すべてのエラーは `console.error()` でコンソールに出力され、デバッグを容易にします。
@@ -401,17 +551,29 @@ git push
 - **原因**: 両方の画像がアップロードされていない
 - **解決**: 両方の画像をアップロード
 
-#### 問題: API エラー
-- **原因**: API Key が正しくない、または未設定
-- **解決**: `.env` ファイルを確認、ブラウザを再読み込み
+#### 問題: バックエンドに接続できない
+- **原因**: バックエンドサーバーが起動していない
+- **解決**: `npm run dev:server`でバックエンドを起動
+
+#### 問題: ADC認証エラー
+- **原因**: Google Cloud認証が設定されていない
+- **解決**: `gcloud auth application-default login`を実行
+
+#### 問題: CORSエラー
+- **原因**: フロントエンドのオリジンが許可リストにない
+- **解決**: `server/.env`の`ALLOWED_ORIGINS`を確認
 
 #### 問題: ドラッグ&ドロップが動作しない
 - **原因**: イベントリスナーが正しく登録されていない
 - **解決**: ブラウザのコンソールでエラーを確認
 
+#### 問題: 画像サイズエラー
+- **原因**: 10MBを超える画像をアップロード
+- **解決**: 画像を圧縮するか、`server/index.js`の`limit`を増やす
+
 #### 問題: 画像が生成されない
-- **原因**: Vertex AI のレスポンス構造が変更された可能性
-- **解決**: `console.log(chunk)` でレスポンスを確認、データ抽出ロジックを調整
+- **原因**: Vertex AIのレスポンス構造が変更された可能性、またはバックエンドエラー
+- **解決**: バックエンドのコンソールログを確認、データ抽出ロジックを調整
 
 ---
 
@@ -500,23 +662,44 @@ git push
 
 ### 公式ドキュメント
 - [Vite Documentation](https://vite.dev/)
-- [Google Generative AI Documentation](https://ai.google.dev/)
-- [Vertex AI Documentation](https://cloud.google.com/vertex-ai/docs)
+- [Express.js Documentation](https://expressjs.com/)
+- [Google Vertex AI Documentation](https://cloud.google.com/vertex-ai/docs)
+- [Vertex AI Node.js SDK](https://cloud.google.com/nodejs/docs/reference/aiplatform/latest)
+
+### プロジェクト内ドキュメント
+- `CLAUDE.md`: プロジェクト仕様書（本ファイル）
+- `TODO.md`: 実装タスク一覧
+- `API_INVESTIGATION.md`: API調査レポート（トラブルシューティング記録）
+- `OAUTH_AUTHENTICATION_SETUP.md`: OAuth/ADC認証設定ガイド
 
 ### トラブルシューティング
 問題が発生した場合:
-1. ブラウザのコンソールでエラーを確認
-2. `.env` ファイルの API Key を確認
-3. `npm install` を再実行
-4. ブラウザのキャッシュをクリア
+1. ブラウザのコンソールでエラーを確認（フロントエンド）
+2. ターミナルのログを確認（バックエンド）
+3. `http://localhost:3001/health`でバックエンドの状態確認
+4. `.env`ファイルの環境変数を確認
+5. ADC認証を確認: `gcloud auth application-default login`
+6. `npm install`を再実行
+7. ブラウザのキャッシュをクリア
 
 ---
 
 ## バージョン履歴
 
-### v0.0.0 (Initial Prototype)
+### v1.0.0 (Production-Ready Backend) - 2026-01-26
+- ✅ Express.jsバックエンドプロキシの実装
+- ✅ Application Default Credentials（ADC）認証
+- ✅ @google-cloud/vertexai SDKへの移行
+- ✅ gemini-2.5-flash-imageモデルの使用
+- ✅ outputMimeTypeパラメーターエラーの修正
+- ✅ ストリーミングレスポンス処理の修正
+- ✅ 1:1アスペクト比への最適化
+- ✅ CORSセキュリティの実装
+- ✅ OAuth認証エラーの解決
+
+### v0.0.0 (Initial Prototype) - 2026-01-26（初期設計）
 - 基本的な画像アップロード機能
-- Vertex AI 統合
+- Vertex AI統合（クライアント側）
 - 画像生成とダウンロード機能
 - ドラッグ&ドロップ対応
 - レスポンシブデザイン
